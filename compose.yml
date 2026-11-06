@@ -1,7 +1,7 @@
 # One-shot upload job:  docker compose run --rm truedbx [--source /data/x] [--target /Dropbox/Folder]
 services:
   truedbx:
-    image: ${TDBX_IMAGE:-ghcr.io/owner/truedbx:latest}
+    image: ${TDBX_IMAGE:-ghcr.io/shunte88/truedbx:latest}
     build: .
     env_file: .env
     volumes:

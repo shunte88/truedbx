@@ -1,7 +1,7 @@
 /*
  *  client.rs
  *
- *  dbxup - simple dropbox sync service
+ *  truedbx - simple dropbox sync service
  *      (c) 2025-26 Stuart Hunter
  *
  *
@@ -20,7 +20,7 @@
  *
  */
 
-use crate::error::{DbxUpError, Result};
+use crate::error::{TrueDbxError, Result};
 use dropbox_sdk::{
     default_async_client::UserAuthDefaultClient, oauth2::Authorization, users,
 };
@@ -31,13 +31,6 @@ pub struct DropboxClient {
 }
 
 impl DropboxClient {
-    /// Create a new Dropbox client with the given access token
-    pub fn new(token: String) -> Self {
-        let auth = Authorization::from_long_lived_access_token(token);
-        let client = UserAuthDefaultClient::new(auth);
-        Self { client }
-    }
-
     /// Create a new Dropbox client from an Authorization object
     pub fn from_authorization(auth: Authorization) -> Self {
         let client = UserAuthDefaultClient::new(auth);
@@ -48,7 +41,7 @@ impl DropboxClient {
     pub async fn validate_token(&self) -> Result<()> {
         users::get_current_account(&self.client)
             .await
-            .map_err(|e| DbxUpError::Authentication(format!("Invalid token: {}", e)))?;
+            .map_err(|e| TrueDbxError::Authentication(format!("Invalid token: {}", e)))?;
         Ok(())
     }
 
@@ -57,31 +50,4 @@ impl DropboxClient {
         &self.client
     }
 
-    /// Check if a file exists at the given Dropbox path and return its size
-    /// Returns Some(size) if file exists, None if it doesn't exist
-    pub async fn get_file_size(&self, path: &str) -> Result<Option<u64>> {
-        use dropbox_sdk::files;
-
-        match files::get_metadata(&self.client, &files::GetMetadataArg::new(path.to_string())).await {
-            Ok(metadata) => {
-                // Extract size from metadata
-                if let files::Metadata::File(file_metadata) = metadata {
-                    Ok(Some(file_metadata.size))
-                } else {
-                    // It's a folder, not a file
-                    Ok(None)
-                }
-            }
-            Err(e) => {
-                // Check if it's a "not found" error
-                let error_str = e.to_string();
-                if error_str.contains("not_found") || error_str.contains("path/not_found") {
-                    Ok(None)
-                } else {
-                    // Other error - propagate it
-                    Err(DbxUpError::DropboxApi(format!("Failed to get file metadata: {}", e)))
-                }
-            }
-        }
-    }
 }

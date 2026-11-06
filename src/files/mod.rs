@@ -1,7 +1,7 @@
 /*
  *  mod.rs
  *
- *  dbxup - simple dropbox sync service
+ *  truedbx - simple dropbox sync service
  *      (c) 2025-26 Stuart Hunter
  *
  *  Independent astronomical calculations (sunrise, sunset, moonrise, moonset)

@@ -1,7 +1,7 @@
 /*
  *  retry.rs
  *
- *  dbxup - simple dropbox sync service
+ *  truedbx - simple dropbox sync service
  *      (c) 2025-26 Stuart Hunter
  *
  *
@@ -20,7 +20,7 @@
  *
  */
 
-use crate::error::{DbxUpError, Result};
+use crate::error::{TrueDbxError, Result};
 use std::time::Duration;
 use tokio::time::sleep;
 
@@ -66,7 +66,7 @@ where
 
                 // Check if we've exhausted retries
                 if attempt > config.max_retries {
-                    return Err(DbxUpError::UploadFailed {
+                    return Err(TrueDbxError::UploadFailed {
                         retries: attempt - 1,
                         message: format!("{}", e),
                     });
@@ -89,14 +89,14 @@ where
 }
 
 /// Determine if an error is retryable
-fn is_retryable_error(error: &DbxUpError) -> bool {
+fn is_retryable_error(error: &TrueDbxError) -> bool {
     match error {
         // Network errors are retryable
-        DbxUpError::Io(_) => true,
-        DbxUpError::Http(_) => true,
+        TrueDbxError::Io(_) => true,
+        TrueDbxError::Http(_) => true,
 
         // Some API errors are retryable (rate limits, transient failures)
-        DbxUpError::DropboxApi(msg) => {
+        TrueDbxError::DropboxApi(msg) => {
             // Check for rate limiting or server errors
             msg.contains("429") || // Too Many Requests
             msg.contains("500") || // Internal Server Error
@@ -108,12 +108,12 @@ fn is_retryable_error(error: &DbxUpError) -> bool {
         }
 
         // Authentication and config errors are not retryable
-        DbxUpError::Authentication(_) => false,
-        DbxUpError::Config(_) => false,
-        DbxUpError::FileNotFound(_) => false,
-        DbxUpError::InvalidPath(_) => false,
-        DbxUpError::FileTooLarge(_) => false,
-        DbxUpError::UploadFailed { .. } => false,
+        TrueDbxError::Authentication(_) => false,
+        TrueDbxError::Config(_) => false,
+        TrueDbxError::FileNotFound(_) => false,
+        TrueDbxError::InvalidPath(_) => false,
+        TrueDbxError::FileTooLarge(_) => false,
+        TrueDbxError::UploadFailed { .. } => false,
     }
 }
 
@@ -123,16 +123,16 @@ mod tests {
 
     #[test]
     fn test_retryable_errors() {
-        assert!(is_retryable_error(&DbxUpError::DropboxApi(
+        assert!(is_retryable_error(&TrueDbxError::DropboxApi(
             "429 Too Many Requests".to_string()
         )));
-        assert!(is_retryable_error(&DbxUpError::DropboxApi(
+        assert!(is_retryable_error(&TrueDbxError::DropboxApi(
             "503 Service Unavailable".to_string()
         )));
-        assert!(!is_retryable_error(&DbxUpError::Authentication(
+        assert!(!is_retryable_error(&TrueDbxError::Authentication(
             "Invalid token".to_string()
         )));
-        assert!(!is_retryable_error(&DbxUpError::Config(
+        assert!(!is_retryable_error(&TrueDbxError::Config(
             "Bad config".to_string()
         )));
     }

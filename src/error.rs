@@ -1,7 +1,7 @@
 /*
  *  error.rs
  *
- *  dbxup - simple dropbox sync service
+ *  truedbx - simple dropbox sync service
  *      (c) 2025-26 Stuart Hunter
  *
  *
@@ -24,7 +24,7 @@ use std::path::PathBuf;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum DbxUpError {
+pub enum TrueDbxError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
@@ -53,4 +53,4 @@ pub enum DbxUpError {
     UploadFailed { retries: u32, message: String },
 }
 
-pub type Result<T> = std::result::Result<T, DbxUpError>;
+pub type Result<T> = std::result::Result<T, TrueDbxError>;

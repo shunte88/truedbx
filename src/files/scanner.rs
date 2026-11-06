@@ -1,7 +1,7 @@
 /*
  *  scanner.rs
  *
- *  dbxup - simple dropbox sync service
+ *  truedbx - simple dropbox sync service
  *      (c) 2025-26 Stuart Hunter
  *
  *  Independent astronomical calculations (sunrise, sunset, moonrise, moonset)
@@ -21,7 +21,7 @@
  *      Public License.
  *
  */
-use crate::error::{DbxUpError, Result};
+use crate::error::{TrueDbxError, Result};
 use crate::files::metadata::{FileMetadata, PathMapper};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -45,11 +45,11 @@ impl FileScanner {
     /// Scan a single file
     pub fn scan_file(&self, path: &Path) -> Result<Vec<FileMetadata>> {
         if !path.exists() {
-            return Err(DbxUpError::FileNotFound(path.to_path_buf()));
+            return Err(TrueDbxError::FileNotFound(path.to_path_buf()));
         }
 
         if !path.is_file() {
-            return Err(DbxUpError::InvalidPath(format!(
+            return Err(TrueDbxError::InvalidPath(format!(
                 "{} is not a file",
                 path.display()
             )));
@@ -60,7 +60,7 @@ impl FileScanner {
 
         // Check if file is too large
         if size > 350 * 1024 * 1024 * 1024 {
-            return Err(DbxUpError::FileTooLarge(path.to_path_buf()));
+            return Err(TrueDbxError::FileTooLarge(path.to_path_buf()));
         }
 
         let dropbox_path = self.mapper.map_to_dropbox(path)?;
@@ -72,11 +72,11 @@ impl FileScanner {
     /// Scan a directory recursively
     pub fn scan_directory(&self, path: &Path) -> Result<Vec<FileMetadata>> {
         if !path.exists() {
-            return Err(DbxUpError::FileNotFound(path.to_path_buf()));
+            return Err(TrueDbxError::FileNotFound(path.to_path_buf()));
         }
 
         if !path.is_dir() {
-            return Err(DbxUpError::InvalidPath(format!(
+            return Err(TrueDbxError::InvalidPath(format!(
                 "{} is not a directory",
                 path.display()
             )));
@@ -165,7 +165,7 @@ impl FileScanner {
         }
 
         if files.is_empty() {
-            return Err(DbxUpError::Config(
+            return Err(TrueDbxError::Config(
                 "No files found to upload".to_string(),
             ));
         }

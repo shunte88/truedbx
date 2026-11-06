@@ -1,7 +1,7 @@
 /*
  *  upload_manager.rs
  *
- *  dbxup - simple dropbox sync service
+ *  truedbx - simple dropbox sync service
  *      (c) 2025-26 Stuart Hunter
  *
  *
@@ -39,15 +39,6 @@ impl UploadManager {
     pub fn new(client: DropboxClient, max_parallel: usize, verbose: bool) -> Self {
         Self {
             client: Arc::new(client),
-            semaphore: Arc::new(Semaphore::new(max_parallel)),
-            verbose,
-        }
-    }
-
-    /// Create upload manager from Arc<DropboxClient>
-    pub fn new_from_arc(client: Arc<DropboxClient>, max_parallel: usize, verbose: bool) -> Self {
-        Self {
-            client,
             semaphore: Arc::new(Semaphore::new(max_parallel)),
             verbose,
         }

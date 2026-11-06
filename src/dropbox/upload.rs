@@ -1,7 +1,7 @@
 /*
  *  upload.rs
  *
- *  dbxup - simple dropbox sync service
+ *  truedbx - simple dropbox sync service
  *      (c) 2025-26 Stuart Hunter
  *
  *
@@ -21,7 +21,7 @@
  */
 
 use crate::dropbox::client::DropboxClient;
-use crate::error::{DbxUpError, Result};
+use crate::error::{TrueDbxError, Result};
 use crate::files::metadata::FileMetadata;
 use crate::retry::{retry_with_backoff, RetryConfig};
 use bytes::Bytes;
@@ -62,7 +62,7 @@ async fn upload_simple(client: &DropboxClient, file: &FileMetadata) -> Result<()
     // Upload the file
     files::upload(client.client(), &upload_arg, bytes)
         .await
-        .map_err(|e| DbxUpError::DropboxApi(format!("Upload failed: {}", e)))?;
+        .map_err(|e| TrueDbxError::DropboxApi(format!("Upload failed: {}", e)))?;
 
     Ok(())
 }
@@ -83,7 +83,7 @@ async fn upload_chunked(client: &DropboxClient, file: &FileMetadata) -> Result<(
     let first_chunk_size = f.read(&mut buffer).await?;
 
     if first_chunk_size == 0 {
-        return Err(DbxUpError::Io(std::io::Error::new(
+        return Err(TrueDbxError::Io(std::io::Error::new(
             std::io::ErrorKind::UnexpectedEof,
             "File is empty",
         )));
@@ -95,7 +95,7 @@ async fn upload_chunked(client: &DropboxClient, file: &FileMetadata) -> Result<(
     let start_arg = files::UploadSessionStartArg::default();
     let session_result = files::upload_session_start(client.client(), &start_arg, first_chunk)
         .await
-        .map_err(|e| DbxUpError::DropboxApi(format!("Failed to start session: {}", e)))?;
+        .map_err(|e| TrueDbxError::DropboxApi(format!("Failed to start session: {}", e)))?;
 
     let session_id = session_result.session_id;
     let mut offset = first_chunk_size as u64;
@@ -117,7 +117,7 @@ async fn upload_chunked(client: &DropboxClient, file: &FileMetadata) -> Result<(
         let append_arg = files::UploadSessionAppendArg::new(cursor);
         files::upload_session_append_v2(client.client(), &append_arg, chunk)
             .await
-            .map_err(|e| DbxUpError::DropboxApi(format!("Failed to append chunk: {}", e)))?;
+            .map_err(|e| TrueDbxError::DropboxApi(format!("Failed to append chunk: {}", e)))?;
 
         offset += bytes_read as u64;
     }
@@ -134,7 +134,7 @@ async fn upload_chunked(client: &DropboxClient, file: &FileMetadata) -> Result<(
     let empty_bytes = Bytes::new();
     files::upload_session_finish(client.client(), &finish_arg, empty_bytes)
         .await
-        .map_err(|e| DbxUpError::DropboxApi(format!("Failed to finish session: {}", e)))?;
+        .map_err(|e| TrueDbxError::DropboxApi(format!("Failed to finish session: {}", e)))?;
 
     Ok(())
 }

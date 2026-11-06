@@ -1,7 +1,7 @@
 /*
  *  metadata.rs
  *
- *  dbxup - simple dropbox sync service
+ *  truedbx - simple dropbox sync service
  *      (c) 2025-26 Stuart Hunter
  *
  *  Independent astronomical calculations (sunrise, sunset, moonrise, moonset)
@@ -21,7 +21,7 @@
  *      Public License.
  *
  */
-use crate::error::{DbxUpError, Result};
+use crate::error::{TrueDbxError, Result};
 use std::path::{Path, PathBuf};
 
 /// Metadata for a file to be uploaded
@@ -50,10 +50,6 @@ impl FileMetadata {
         self.size >= 150 * 1024 * 1024
     }
 
-    /// Check if file exceeds Dropbox's 350GB limit
-    pub fn exceeds_dropbox_limit(&self) -> bool {
-        self.size > 350 * 1024 * 1024 * 1024
-    }
 }
 
 /// Maps local file path to Dropbox path
@@ -77,7 +73,7 @@ impl PathMapper {
         if local_path == self.base_local_path {
             let filename = local_path
                 .file_name()
-                .ok_or_else(|| DbxUpError::InvalidPath("No filename found".to_string()))?
+                .ok_or_else(|| TrueDbxError::InvalidPath("No filename found".to_string()))?
                 .to_string_lossy();
 
             // Ensure dropbox path ends with /
@@ -93,7 +89,7 @@ impl PathMapper {
         let relative = local_path
             .strip_prefix(&self.base_local_path)
             .map_err(|_| {
-                DbxUpError::InvalidPath(format!(
+                TrueDbxError::InvalidPath(format!(
                     "Path {} is not within base path {}",
                     local_path.display(),
                     self.base_local_path.display()
@@ -133,15 +129,5 @@ mod tests {
             200 * 1024 * 1024, // 200MB
         );
         assert!(large_file.requires_chunked_upload());
-    }
-
-    #[test]
-    fn test_dropbox_limit() {
-        let huge_file = FileMetadata::new(
-            PathBuf::from("/huge.bin"),
-            "/huge.bin".to_string(),
-            400 * 1024 * 1024 * 1024u64, // 400GB
-        );
-        assert!(huge_file.exceeds_dropbox_limit());
     }
 }

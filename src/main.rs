@@ -57,8 +57,11 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// One-time: exchange an authorization code for a refresh token to put in .env
-    Auth,
+    /// One-time: get a refresh token and write it as TDBX_TOKN into an env file (never printed)
+    Auth {
+        #[arg(long, default_value = ".env")]
+        env_file: PathBuf,
+    },
 }
 
 #[tokio::main]
@@ -82,8 +85,8 @@ async fn run() -> Result<()> {
     let app_key = env("TDBX_AKEY")?;
     let app_secret = env("TDBX_ASEC")?;
 
-    if let Some(Commands::Auth) = cli.command {
-        return auth(&app_key, &app_secret).await;
+    if let Some(Commands::Auth { env_file }) = &cli.command {
+        return auth(&app_key, &app_secret, env_file).await;
     }
 
     let (Some(source), Some(target)) = (cli.source, cli.target) else {
@@ -121,19 +124,23 @@ async fn run() -> Result<()> {
     Ok(())
 }
 
-/// Interactive auth-code flow; prints the refresh token rather than storing it
-async fn auth(app_key: &str, app_secret: &str) -> Result<()> {
+/// Interactive auth-code flow; writes the refresh token to env_file, never to the terminal
+async fn auth(app_key: &str, app_secret: &str, env_file: &std::path::Path) -> Result<()> {
     println!(
         "Visit, click Allow, then paste the code:\n\n  https://www.dropbox.com/oauth2/authorize?client_id={}&response_type=code&token_access_type=offline\n",
         app_key
     );
     let mut code = String::new();
     std::io::stdin().read_line(&mut code)?;
+    let code = code.trim();
+    if code.is_empty() {
+        return Err(TrueDbxError::Config("No code entered (run from an interactive terminal)".to_string()));
+    }
 
     let response: serde_json::Value = reqwest::Client::new()
         .post("https://api.dropboxapi.com/oauth2/token")
         .form(&[
-            ("code", code.trim()),
+            ("code", code),
             ("grant_type", "authorization_code"),
             ("client_id", app_key),
             ("client_secret", app_secret),
@@ -143,9 +150,56 @@ async fn auth(app_key: &str, app_secret: &str) -> Result<()> {
         .json()
         .await?;
 
-    let token = response["refresh_token"]
-        .as_str()
-        .ok_or_else(|| TrueDbxError::Authentication(format!("No refresh token: {}", response)))?;
-    println!("\nAdd to .env:\n\nTDBX_TOKN={}", token);
+    // Only echo error fields so no token can leak into the terminal/logs
+    let token = response["refresh_token"].as_str().ok_or_else(|| {
+        TrueDbxError::Authentication(format!(
+            "{} {}",
+            response["error"].as_str().unwrap_or("no refresh token returned"),
+            response["error_description"].as_str().unwrap_or("")
+        ))
+    })?;
+
+    write_env_var(env_file, "TDBX_TOKN", token)?;
+    println!("✓ TDBX_TOKN written to {}", env_file.display());
     Ok(())
+}
+
+/// Set KEY=value in an env file (replacing any existing KEY line), mode 0600
+fn write_env_var(path: &std::path::Path, key: &str, value: &str) -> Result<()> {
+    use std::io::Write;
+    use std::os::unix::fs::OpenOptionsExt;
+
+    let existing = std::fs::read_to_string(path).unwrap_or_default();
+    let prefix = format!("{}=", key);
+    let mut out: String = existing
+        .lines()
+        .filter(|l| !l.starts_with(&prefix))
+        .map(|l| format!("{}\n", l))
+        .collect();
+    out.push_str(&format!("{}{}\n", prefix, value));
+
+    let mut f = std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(path)?;
+    f.write_all(out.as_bytes())?;
+    // mode() only applies on create; tighten an existing file too
+    std::fs::set_permissions(path, std::os::unix::fs::PermissionsExt::from_mode(0o600))?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn write_env_var_replaces_existing_key() {
+        let path = std::env::temp_dir().join(format!("truedbx-test-{}.env", std::process::id()));
+        std::fs::write(&path, "A=1\nTDBX_TOKN=old\nB=2\n").unwrap();
+        write_env_var(&path, "TDBX_TOKN", "new").unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "A=1\nB=2\nTDBX_TOKN=new\n");
+        std::fs::remove_file(&path).unwrap();
+    }
 }

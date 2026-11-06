@@ -74,8 +74,10 @@ async fn main() {
 
 /// Credentials come only from the environment, never the command line
 fn env(name: &str) -> Result<String> {
+    // Tolerate CRLF .env files and quoted values pasted into NAS env UIs
     std::env::var(name)
         .ok()
+        .map(|v| v.trim().trim_matches(|c| c == '"' || c == '\'').to_string())
         .filter(|v| !v.is_empty())
         .ok_or_else(|| TrueDbxError::Config(format!("{} env var is required", name)))
 }
@@ -96,6 +98,11 @@ async fn run() -> Result<()> {
     if !target.starts_with('/') {
         return Err(TrueDbxError::InvalidPath("Target must start with '/'".to_string()));
     }
+
+    // Surface the real reason (not found vs permission denied) instead of a bare "not found"
+    std::fs::metadata(&source).map_err(|e| {
+        TrueDbxError::Config(format!("Cannot access source {}: {}", source.display(), e))
+    })?;
 
     let scanner = FileScanner::new(source.clone(), target);
     let files = if source.is_dir() {

@@ -4,8 +4,8 @@ One-shot Dropbox uploader for TrueNAS: uploads a file or folder (recursively) to
 
 ## Setup
 
-1. `cp .env.example .env`, then fill in `TDBX_APP_KEY` / `TDBX_APP_SECRET`. Set `TDBX_IMAGE` to `ghcr.io/<owner>/<repo>:latest`.
-2. Get a refresh token (one time): `docker compose run --rm -it truedbx auth`, then paste the printed `TDBX_REFRESH_TOKEN=` line into `.env`.
+1. `cp .env.example .env`, then fill in `TDBX_AKEY` / `TDBX_ASEC` (app key and secret). Credentials are read only from env vars, never command-line flags.
+2. Get a refresh token (one time): `docker compose run --rm -it truedbx auth`, then paste the printed `TDBX_TOKN=` line into `.env`.
 
 ## Run
 

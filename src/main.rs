@@ -50,15 +50,6 @@ struct Cli {
           value_parser = clap::value_parser!(u16).range(1..=100))]
     parallel: u16,
 
-    #[arg(long, env = "TDBX_APP_KEY", hide_env_values = true)]
-    app_key: String,
-
-    #[arg(long, env = "TDBX_APP_SECRET", hide_env_values = true)]
-    app_secret: String,
-
-    #[arg(long, env = "TDBX_REFRESH_TOKEN", hide_env_values = true)]
-    refresh_token: Option<String>,
-
     /// Enable verbose logging
     #[arg(short, long)]
     verbose: bool,
@@ -78,18 +69,27 @@ async fn main() {
     }
 }
 
+/// Credentials come only from the environment, never the command line
+fn env(name: &str) -> Result<String> {
+    std::env::var(name)
+        .ok()
+        .filter(|v| !v.is_empty())
+        .ok_or_else(|| TrueDbxError::Config(format!("{} env var is required", name)))
+}
+
 async fn run() -> Result<()> {
     let cli = Cli::parse();
+    let app_key = env("TDBX_AKEY")?;
+    let app_secret = env("TDBX_ASEC")?;
 
     if let Some(Commands::Auth) = cli.command {
-        return auth(&cli.app_key, &cli.app_secret).await;
+        return auth(&app_key, &app_secret).await;
     }
 
-    let (Some(source), Some(target), Some(refresh_token)) = (cli.source, cli.target, cli.refresh_token) else {
-        return Err(TrueDbxError::Config(
-            "--source, --target and TDBX_REFRESH_TOKEN are required".to_string(),
-        ));
+    let (Some(source), Some(target)) = (cli.source, cli.target) else {
+        return Err(TrueDbxError::Config("--source and --target are required".to_string()));
     };
+    let refresh_token = env("TDBX_TOKN")?;
     if !target.starts_with('/') {
         return Err(TrueDbxError::InvalidPath("Target must start with '/'".to_string()));
     }
@@ -103,8 +103,8 @@ async fn run() -> Result<()> {
 
     // SDK refreshes the short-lived access token itself
     let auth = dropbox_sdk::oauth2::Authorization::from_client_secret_refresh_token(
-        cli.app_key,
-        cli.app_secret,
+        app_key,
+        app_secret,
         refresh_token,
     );
     let client = dropbox::client::DropboxClient::from_authorization(auth);
@@ -146,6 +146,6 @@ async fn auth(app_key: &str, app_secret: &str) -> Result<()> {
     let token = response["refresh_token"]
         .as_str()
         .ok_or_else(|| TrueDbxError::Authentication(format!("No refresh token: {}", response)))?;
-    println!("\nAdd to .env:\n\nTDBX_REFRESH_TOKEN={}", token);
+    println!("\nAdd to .env:\n\nTDBX_TOKN={}", token);
     Ok(())
 }
